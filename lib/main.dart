@@ -1,6 +1,8 @@
+import 'package:english_words/english_words.dart';
 import 'package:flutter/material.dart';
-import 'package:gymnesia/cardioExercise.dart';
+import 'package:gymnesia/cardio_exercise.dart';
 import 'package:gymnesia/exercise.dart';
+import 'package:gymnesia/workout.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -13,15 +15,23 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    // var appState = context.watch<MyAppState>();
+
+    var pageTitle = "Gymnesia";
+    ThemeData theme = ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+    );
+
     return ChangeNotifierProvider(
       create: (context) => MyAppState(),
       child: MaterialApp(
         title: 'Flutter Demo',
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        theme: theme,
+        home: MyHomePage(
+          title: pageTitle,
+          appTheme: theme,
         ),
-        home: const MyHomePage(title: 'Current Workout'),
       ),
     );
   }
@@ -30,14 +40,21 @@ class MyApp extends StatelessWidget {
 class MyAppState extends ChangeNotifier {
 
   bool isWorkingOut = false;
-  List<Exercise> currentWorkout = <Exercise>[];
+  Workout currentWorkout = Workout();
+  ThemeData theme = ThemeData.light(useMaterial3: true);
+
+  // var textStyle =  Theme.of(context).textTheme.bodyLarge
+  //     .copyWith(color: appTheme.colorScheme.onBackground);
 
   void startWorkout() {
     isWorkingOut = true;
-    currentWorkout = <Exercise>[
-    CardioExercise("Treadmill", const Icon(Icons.directions_run)),
-    CardioExercise("Elliptical", const Icon(Icons.directions_run)),
-    ];
+    currentWorkout = Workout();
+    // currentWorkout = <Exercise>[
+    //   CardioExercise("Treadmill", const Icon(Icons.directions_run)),
+    //   CardioExercise("Elliptical", const Icon(Icons.directions_run)),
+    //   StrengthExercise("Bench Press", const Icon(Icons.directions_run),
+    //       reps: 8, sets: 3, weight: 100),
+    // ];
     notifyListeners();
   }
 
@@ -47,18 +64,20 @@ class MyAppState extends ChangeNotifier {
   }
 
   void addExercise() {
-    currentWorkout.insert(0, CardioExercise("name", const Icon(Icons.directions_run)));
+    currentWorkout.addExercise(CardioExercise(
+        name: WordPair.random().toString(),
+        icon: const Icon(Icons.directions_run)));
     notifyListeners();
   }
 
-  void removeExercise(id) {
-    currentWorkout.removeAt(id);
+  void removeExercise(Exercise exercise) {
+    currentWorkout.removeExercise(exercise);
     notifyListeners();
   }
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  const MyHomePage({super.key, required this.title, required this.appTheme});
 
   // This widget is the home page of your application. It is stateful, meaning
   // that it has a State object (defined below) that contains fields that affect
@@ -70,6 +89,7 @@ class MyHomePage extends StatefulWidget {
   // always marked "final".
 
   final String title;
+  final ThemeData appTheme;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -77,6 +97,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int currentPageIndex = 1;
+  String currentPageTitle = "Gymnesia";
   var destinations = [
     const NavigationDestination(icon: Icon(Icons.show_chart), label: "Logs"),
     const NavigationDestination(icon: Icon(Icons.home), label: "Workout"),
@@ -88,15 +109,21 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget build(BuildContext context) {
     Widget currentPage;
 
+    var appState = context.watch<MyAppState>();
+    appState.theme = widget.appTheme;
+
     switch (currentPageIndex) {
       case 0:
         currentPage = const LogsPage();
+        currentPageTitle = "Logs";
         break;
       case 1:
         currentPage = const CurrentWorkoutPage();
+        currentPageTitle = "Workout";
         break;
       case 2:
         currentPage = const LibraryPage();
+        currentPageTitle = "Exercise Library";
         break;
       default:
         throw UnimplementedError("No widget for $currentPageIndex");
@@ -113,13 +140,10 @@ class _MyHomePageState extends State<MyHomePage> {
         appBar: AppBar(
           // Here we take the value from the MyHomePage object that was created by
           // the App.build method, and use it to set our appbar title.
-          title: Text(widget.title),
+          title: Text(currentPageTitle),
         ),
         body: Container(
-          color: Theme
-              .of(context)
-              .colorScheme
-              .background,
+          color: appState.theme.colorScheme.background,
           child: currentPage,
         ),
         bottomNavigationBar: NavigationBar(
@@ -142,10 +166,7 @@ class CurrentWorkoutPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     var appState = context.watch<MyAppState>();
-    var appTheme = Theme.of(context);
-    var textStyle = appTheme.textTheme.bodyLarge!.copyWith(
-        color: appTheme.colorScheme.onBackground
-    );
+    var appTheme = appState.theme;
 
     if (appState.isWorkingOut) {
       return Column(
@@ -153,31 +174,40 @@ class CurrentWorkoutPage extends StatelessWidget {
           Expanded(
             child: ListView(
               children: [
-                for (var exercise in appState.currentWorkout)
+                for (var exercise in appState.currentWorkout.exercises)
                   ListTile(
                     leading: exercise.icon,
-                    title: Text(exercise.name, style: textStyle,),
-                    trailing: IconButton(icon: const Icon(Icons.delete), onPressed: () => {appState.removeExercise(appState.currentWorkout.indexOf(exercise))},),
-                    selectedColor: Colors.blue,
+                    title: Text(
+                      exercise.name,
+                      style: appTheme.textTheme.bodyLarge,
+                    ),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: () => {appState.removeExercise(exercise)},
+                    ),
                   ),
               ],
             ),
           ),
-          Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(10.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    ElevatedButton(onPressed: appState.endWorkout, child: const Text("End Workout")),
-                    // BigIconButton(const Icon(Icons.done), appState.endWorkout ),
-                    const SizedBox(width: 20,),
-                    ElevatedButton(onPressed: appState.addExercise, child: const Text("Add Exercise")),
-                    // BigIconButton(const Icon(Icons.add), appState.addExercise),
-                  ],
+          Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                ElevatedButton(
+                    onPressed: appState.endWorkout,
+                    child: const Text("End Workout")),
+                // BigIconButton(const Icon(Icons.done), appState.endWorkout ),
+                const SizedBox(
+                  width: 20,
                 ),
-              ),
+                ElevatedButton(
+                    onPressed: appState.addExercise,
+                    child: const Text("Add Exercise")),
+                // BigIconButton(const Icon(Icons.add), appState.addExercise),
+              ],
+            ),
           ),
         ],
       );
@@ -186,13 +216,14 @@ class CurrentWorkoutPage extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Center(
-            child: ElevatedButton(onPressed: appState.startWorkout, child: const Text("Start Workout"),),
+            child: ElevatedButton(
+              onPressed: appState.startWorkout,
+              child: const Text("Start Workout"),
+            ),
           )
         ],
       );
     }
-
-
   }
 }
 
@@ -217,7 +248,6 @@ class LibraryPage extends StatelessWidget {
 }
 
 class BigIconButton extends StatelessWidget {
-
   final Icon icon;
   final Function action;
 
@@ -231,18 +261,14 @@ class BigIconButton extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8.0),
           // set button corner radius
-          side: BorderSide(color: Theme.of(context).colorScheme
-              .primary), // set button border
+          side: BorderSide(
+              color:
+                  Theme.of(context).colorScheme.primary), // set button border
         ),
         minimumSize: const Size(120, 120), // set button size
-        backgroundColor: Theme
-            .of(context)
-            .colorScheme
-            .background,
+        backgroundColor: Theme.of(context).colorScheme.background,
       ),
       child: icon,
     );
   }
-
-
 }
